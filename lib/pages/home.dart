@@ -15,6 +15,7 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   List<Map<String, dynamic>> tasks = [];
+  bool _showComplete = false;
 
   TextEditingController _taskController = TextEditingController();
 
@@ -31,6 +32,7 @@ class _HomeState extends State<Home> {
     if (taches != null) {
       setState(() {
         tasks = List<Map<String, dynamic>>.from(json.decode(taches));
+        print(tasks);
       });
     }
   }
@@ -58,16 +60,57 @@ class _HomeState extends State<Home> {
 
   //function pour supprimer un taches
   Future<void> _deleteTask(int index) async {
-    setState(() {
-      tasks.removeAt(index);
-      _saveTask();
-    });
+    final delete = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('supprimer tache'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('annuler'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, true);
+            } ,
+            child: Text('supprimer',style: TextStyle(color: Colors.red),),
+          ),
+        ],
+      )
+      );
+      if(delete == true){
+        final realIndex = tasks.indexOf(tasks[index]);
+        setState(() {
+          tasks.removeAt(realIndex);
+          _saveTask();
+        });
+      }
+  }
+
+  //function pour afficher les taches complete ou non complete
+  List<Map<String, dynamic>> getCompleteTask() {
+    return tasks.where((task) => task['complete'] == true).toList();
   }
 
   @override
   Widget build(BuildContext context) {
+    List<Map<String, dynamic>> displayTask = _showComplete ? getCompleteTask() : tasks;
+
     return Scaffold(
-      appBar: AppBar(title: Text("taches")),
+      appBar: AppBar(
+        title: Text("Gestion taches"),
+        actions: [
+          IconButton(
+            onPressed: () {
+              setState(() {
+                _showComplete = !_showComplete;
+              });
+            },
+            icon: Icon(_showComplete ? Icons.check_circle : Icons.list),
+          ),
+        ],
+      ),
+
       body: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
@@ -84,7 +127,13 @@ class _HomeState extends State<Home> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text("Nouvelle tâche", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,)),
+                          Text(
+                            "Nouvelle tâche",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           MyField(controller: _taskController),
                           GestureDetector(
                             onTap: () {
@@ -98,10 +147,15 @@ class _HomeState extends State<Home> {
                               ),
                               width: double.infinity,
                               padding: EdgeInsets.all(16),
-                              child: Center(child: const Text("Ajouter",style: TextStyle(color: Colors.white),)),
+                              child: Center(
+                                child: const Text(
+                                  "Ajouter",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
                             ),
-                          )
-                        ]
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -114,49 +168,78 @@ class _HomeState extends State<Home> {
                 ),
                 width: double.infinity,
                 padding: EdgeInsets.all(16),
-                child: const Text("nouvelle tache",style: TextStyle(color: Colors.white,fontSize: 18,fontWeight: FontWeight.bold),),
+                child: Row(
+                  children: [
+                    const Text(
+                      "nouvelle tache",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(width: 10),
+                    Icon(Icons.edit_document, color: Colors.white),
+                  ],
+                ),
               ),
             ),
             SizedBox(height: 16),
             Container(height: 3, width: double.infinity, color: Colors.grey),
             SizedBox(height: 10),
-            TextOne(),
-            // Row(
-            //   children: [
-            //     MyField(controller: _taskController),
-            //     TextButton(
-            //       onPressed: () {
-            //         _addTask();
-            //       },
-            //       child: Icon(Icons.add),
-            //     ),
-            //   ],
-            // ),
+            _showComplete
+                ? Text(
+                  'Tache Complete',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                )
+                : TextOne(),
             Expanded(
               child: ListView.builder(
-                itemCount: tasks.length,
+                itemCount: displayTask.length,
                 itemBuilder: (context, index) {
                   return ListTile(
                     leading: Checkbox(
-                      value: tasks[index]['complete'],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      activeColor: Colors.blue,
+                      value: displayTask[index]['complete'],
                       onChanged: (value) {
                         setState(() {
-                          tasks[index]['complete'] = value ?? false;
-                          _saveTask();
+                          int realIdex = tasks.indexOf(displayTask[index]);
+                          if (realIdex != -1) {
+                            setState(() {
+                              tasks[realIdex]['complete'] = value ?? false;
+                              _saveTask();
+                            });
+                          }
                         });
                       },
                     ),
-                    title: Text(
-                      tasks[index]['tache'] ?? "Tâche vide",
-                      style: TextStyle(
-                        decoration:
-                            (tasks[index]['complete'] ?? false
-                                ? TextDecoration.lineThrough
-                                : TextDecoration.none),
-                      ),
-                    ),
+                    title:
+                        _showComplete
+                            ? Text(
+                              displayTask[index]['tache'],
+                              style: TextStyle(
+                                decoration: TextDecoration.lineThrough,
+                                color: Colors.grey,
+                              ),
+                            )
+                            : Text(
+                              tasks[index]['tache'] ?? "Tâche vide",
+                              style: TextStyle(
+                                decoration:
+                                    displayTask[index]['complete'] ?? false
+                                        ? TextDecoration.lineThrough
+                                        : TextDecoration.none,
+                                color:
+                                    displayTask[index]['complete'] ?? false
+                                        ? Colors.grey
+                                        : Colors.black,
+                              ),
+                            ),
                     trailing: IconButton(
-                      icon: Icon(Icons.delete),
+                      icon: Icon(Icons.delete, color: Colors.red),
                       onPressed: () {
                         _deleteTask(index);
                       },
